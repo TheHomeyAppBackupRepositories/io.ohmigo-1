@@ -42,8 +42,8 @@ module.exports = class mainDevice extends Device {
       const deviceInfo = await this.api.getInfo();
       if (deviceInfo) {
         this.log(`${this.getName()} - onAdded - device => `, deviceInfo);
-        this.setSettings({ type: deviceInfo.type });
-        this.setSettings({ firmware: deviceInfo.firmware });
+        await this.setSettings({ type: deviceInfo.type });
+        await this.setSettings({ firmware: deviceInfo.firmware });
       }
     } catch (error) {
       this.log(`${this.getName()} - onAdded - error => `, error);
@@ -198,7 +198,18 @@ module.exports = class mainDevice extends Device {
   async setCapabilityValues(check = false) {
     try {
       const deviceInfo = await this.api.getInfo();
+      // Check if there was a connection error and throw the error message for catch.
+      if (deviceInfo.errno !== undefined) {
+        const error = `${deviceInfo.code} ${deviceInfo.address}:${deviceInfo.port}}`;
+        throw new Error(error);
+      }
+      if (deviceInfo.uptime === undefined) {
+        const error = 'Couldn\'t get uptime from device, check device.';
+        throw new Error(error);
+      }
       const deviceConfig = await this.api.getConfig();
+      this.log(`deviceInfo: ${typeof deviceInfo} ${JSON.stringify(deviceInfo)}`);
+      this.log(`deviceConfig: ${typeof deviceConfig} ${JSON.stringify(deviceConfig)}`);
       if (deviceInfo && deviceConfig) {
         if (this.getAvailable() === false) this.setAvailable();
         const device = { ...deviceInfo, ...deviceConfig };
@@ -220,9 +231,10 @@ module.exports = class mainDevice extends Device {
           this.uptimeUpdate = true;
         }
 
+        this.log(`deviceType: OLD ${typeof settings.type} ${settings.type} NEW ${typeof device.type} ${device.type}`);
         // Update firmware and sensortype to settings if needed
-        if (device.type !== settings.type) this.setSettings({ type: device.type });
-        if (device.firmware !== settings.firmware) this.setSettings({ firmware: device.firmware });
+        if (device.type !== settings.type) await this.setSettings({ type: device.type });
+        if (device.firmware !== settings.firmware) await this.setSettings({ firmware: device.firmware });
       }
     } catch (error) {
       this.log(`${this.getName()} - setCapabilityValues - offline: ${error}`);
